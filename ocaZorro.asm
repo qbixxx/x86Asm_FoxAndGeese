@@ -314,6 +314,7 @@ turnoZorro:
 
     mov     r13,[nameOca]
     mov     [jugTurno],r13
+    ;empieza el turno de la oca
 ret
 
 
