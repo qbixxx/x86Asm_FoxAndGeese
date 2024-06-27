@@ -14,11 +14,12 @@ extern fwrite
 ;=(1 * 7)+2
 section .data
     eL                    db    "   ",0
-    diff                  dd    1
+    ;diff                  dd    1
+    diff                  dq    1
     mjeDiff               db    "Diferencia: %i",10,0
     nameZorro             db    "Zorro",0
     nameOca               db    "Oca",0
-    mjePos                db    "Posicion: %i",10,0  
+    mjePosDestino         db    "Posicion destino: %i",10,0  
     mjePosZorro           db    "Posicion Zorro: %i",10,0  
     mjeFin                db    "> Fin de programa",10,0
     mjeTurnoZorro         db    "Turno de Zorro",10,0
@@ -28,21 +29,24 @@ section .data
     fileName              db    "tablero.bin",0
     mjeOk                 db    10,"> Archivo abierto con exito!",10,10,0
     mjeErrorOpen          db    10,"> Error en apertura de archivo",10,10,0
+    mjeErrorLectura       db    10,"> Error en la lectura del archivo",10,10,0
     tamTablero            db    49
     mjeChar               db    " %c ",0
     nL                    db    10,0
     line                  db    7
-    mjeFila               db    "ingrese fila:",10,0
-    mjeColum              db    "ingrese columna:",10,0
+    mjeFila               db    10,"Ingrese fila (de 0 a 6):",10,0
+    mjeColum              db    "Ingrese columna (de 0 a 6):",10,0
 
     mjePiezaPos           db    "En la posicion %i hay un %c",10,0
+
+    mjeNoHayOca           db    "En la posicion seleccionada no hay una oca",10,0
 
     prueba  db "prueba",10,0
     
     formatNum       db      "%i",0
     indexer         db      " %i ",0
 
-    mjeCoord        db      "Se mueve a fila %i, columna %i",10,0
+    mjeCoord        db      10,"Se mueve a fila %i, columna %i",10,0
     
     mjePosInvalid   db      "Posicion no valida",10,0
 
@@ -52,8 +56,10 @@ section .data
 
 section .bss
     
-    posZorro        resb    8
-
+    ;posZorro        resb    8
+    ;posOca          resb    8
+    posZorro        resq    1
+    posOca          resq    1
     bufferCol       resb    8
     bufferFil       resb    8
     buffer          resb    500
@@ -61,10 +67,11 @@ section .bss
     bufferTablero   resb    96; 49*2
     charActual      resq    1
 
-    intCol         resd     1
-    intFil         resd     1
+    intCol         resq     1
+    intFil         resq     1
 
-    posicion        resb    10
+    ;posicion        resb    10
+    posDestino      resq    1   
 
     jugTurno        resb    8
 
@@ -73,15 +80,17 @@ main:
     ;Abro archivo
     mov     rdi,fileName
     mov     rsi,mode
+    sub     rsp,8
     call    fopen
+    add     rsp,8
     
     mov     qword[fileHandle],rax
     cmp     qword[fileHandle],0
     jle     openError ; Error de apertura?
 
     ; Mje exito de apertura
-    sub     rsp,8
     mov     rdi,mjeOk
+    sub     rsp,8
     call    printf 
     add     rsp,8
 
@@ -91,17 +100,26 @@ main:
     mov     rsi,49
     mov     rdx,1
     mov     rcx,qword[fileHandle]
+    sub     rsp,8
     call    fread
+    add     rsp,8
 
     cmp     rax,0
-    jle     endProg
-    
+    ;jle     endProg
+    jle     errorLectura
+    jg      noErrorLectura
+
+    errorLectura:
+    mov     rdi,mjeErrorLectura
+    sub     rsp,8
+    call    puts
+    add     rsp,8
+    jmp     endProg
+
+    noErrorLectura:
+
     ;lectura de registro exitosa:
    
-
-
-   ;   
-
     mov     r12,[nameZorro]
     mov     [jugTurno],r12
 
@@ -110,21 +128,36 @@ main:
     gameLoop: 
     
     call    printTablero
+;-------------------------------------------------------------------------------
+;FALTA
+    ;Luego del tablero, en una linea mostramos el comando para salir sin guardar
+    ;y el comando para guardar y salir
+    ;-->Debería ser una combinacion de fila y columna para cada una
+;-------------------------------------------------------------------------------
     mov     r12,[jugTurno]
     
     cmp     r12,[nameZorro]
     jne     notZorro
     ;call    findPosZorro
     call    turnoZorro
-    jmp     outG
+    ;aca puedo CHECHEAR luego del movimiento, si zorro gano, seteando r15 = 1
+    ;si gano ZORRO mando un mensaje, luego acá bifurco a "endMain:"
+    jmp     sigTurno
     
     notZorro:
 
     ;cmp     r12,[nameOca]
     call    turnoOca
+    ;aca puedo CHECHEAR luego del movimiento, si zorro gano, seteando r15 = 1
+    ;si gano OCA mando un mensaje, luego acá bifurco a "endMain:"
 
-    outG:
-
+    sigTurno:
+;----------------------------------------------------------------
+;FALTA
+    ; CHECKEAR SI ZORRO O OCAS GANARON, para cortar el loop
+    ;--- Las ocas rodearon al zorro
+    ;--- El zorro se comio 12 ocas
+;----------------------------------------------------------------
     loop    gameLoop
 
     ;call    printTablero
@@ -137,21 +170,146 @@ main:
 ;
     ;call    endProg
 
-
+;endMain:
+    ;call    endProg
 ret
+  
 
 turnoOca:
-
+    
     mov     rdi,mjeTurnoOca
+    sub     rsp,8
     call    puts
+    add     rsp,8
+    
+    call    checkPosOca
 
-    mov     rdi,buffer
-    call    gets
+    mov     rdi,mjeCoord
+    mov     rsi,[intFil]
+    mov     rdx,[intCol]
+    sub     rsp,64
+    call    printf
+    add     rsp,64
 
-    mov     r13,[nameZorro]
+    ;calculo la posicion: posición = (fila * número_de_columnas) + columna
+
+;    call posCaidaOca; a hacer
+
+
+    mov     rbx,[intFil]
+    mov     rax,7;[line] ; nro de columnas
+
+    mov     r13,[intCol]
+
+    imul    rax,rbx
+    add     rax,r13
+    mov     [posDestino],rax
+    
+    mov     rdi,mjePosDestino
+    mov     rsi,[posDestino]
+    sub     rsp,64
+    call    printf
+    add     rsp,64
+    
+    mov     rbx,[posDestino]
+    mov     al,byte[tablero+rbx]
+    cmp     al,"_"
+    jne     badPosZorro
+
+        
+    xor     r12,r12
+    mov     r12,[posDestino]
+    mov     rbx,[posZorro]
+
+    sub     r12,rbx
+    mov     [diff],r12;[Zorro] diferencia (recorrido/salto) = posApuntada - posActual 
+
+    cmp     qword[diff],-7;norte
+    je      moverOca
+    cmp     qword[diff],7;sur
+    je      moverOca
+    cmp     qword[diff],1;este
+    je      moverOca
+    cmp     qword[diff],-1;oeste
+    je      moverOca
+    cmp     qword[diff],8;sur este
+    je      moverOca
+    cmp     qword[diff],-8;nor oeste
+    je      moverOca
+    cmp     qword[diff],6;sur oeste
+    je      moverOca
+    cmp     qword[diff],-6;nor este
+    je      moverOca
+
+
+    
+    moverOca:
+  
+    xor     rbx,rbx
+    xor     rax,rax
+    xor     rdi,rdi
+    xor     rsi,rsi
+    xor     rdx,rdx
+    xor     r14,r14
+    mov     rbx,[posDestino]
+    mov     rdi,mjePiezaPos;
+    mov     rsi,[posDestino]
+    mov     al,[tablero+rbx]
+    mov     dl,al
+    sub     rsp,64
+    call    printf
+    add     rsp,64
+
+    mov     rax,[posZorro]
+    mov     byte[tablero+rax],"_"
+    mov     byte[tablero+rbx],"X";
+
+
+    
+
+    mov     r13,[nameOca]
     mov     [jugTurno],r13
+ret
 
-    ret
+
+checkPosOca:
+
+    sub     rsp,8
+    call    pedirPos
+    add     rsp,8
+
+    ;encuentro e imprimo la posicion del zorro        
+
+    xor     rbx,rbx
+    mov     rbx,[intFil]
+    mov     rax,7;[line] ; nro de columnas
+
+    mov     r13,[intCol]
+
+    imul    rax,rbx
+    add     rax,r13
+    mov     [posDestino],rax
+
+
+    mov     rbx,[posDestino]
+    
+
+    cmp     byte[tablero+rbx],"O"
+
+    jne     badPosOca
+    je      outOca
+    badPosOca:
+    mov     rdi,mjeNoHayOca
+    sub     rsp,64
+    call    printf
+    add     rsp,64
+
+    jmp     checkPosOca
+
+    outOca:
+
+
+ret
 
 
 findPosZorro:
@@ -165,7 +323,7 @@ findPosZorro:
     cmp     byte[tablero+rbx],"X"
 
     jne     sig
-    mov     byte[posZorro],bl
+    mov     [posZorro],rbx
     jmp     outP
     sig:
 
@@ -179,52 +337,29 @@ findPosZorro:
 
     mov     rdi,mjePosZorro    
     mov     rsi,[posZorro]
-    sub     rsp,8
+    sub     rsp,64
     call    printf
-    add     rsp,8
+    add     rsp,64
 ret
 
 turnoZorro:
-    
     
     mov     rdi,mjeTurnoZorro
     sub     rsp,64       ;
     call    printf      ;
     add     rsp,64  
 
-    call    findPosZorro
+    sub     rsp,8
+    call    findPosZorro    ;se setea posZorro
+    add     rsp,8
 
-    pedirPos:
-    mov     rdi,mjeFila
-    sub     rsp,64       ;
-    call    printf      ;
-    add     rsp,64
+    pedirPosZorro:
+    sub     rsp,8
+    call    pedirPos        ; se setean intFil intCol
+    add     rsp,8
 
-    mov     rdi,bufferFil
-    call    gets
 
-    mov     rdi,bufferFil
-    mov     rsi,formatNum       
-	mov		rdx,intFil   ;Formateo el input, str a int    
-	sub		rsp,64
-	call	sscanf             
-	add		rsp,64
-
-    mov     rdi,mjeColum
-    sub     rsp,64       ;
-    call    printf      ;
-    add     rsp,64
-
-    mov     rdi,bufferCol
-    call    gets
- 
-    mov     rdi,bufferCol
-    mov     rsi,formatNum       
-	mov		rdx,intCol   ;Formateo el input, str a int    
-	sub		rsp,64
-	call	sscanf             
-	add		rsp,64
-
+;;; chequear combinaciones de fila y columna para salir y guardar
 
     mov     rdi,mjeCoord
     mov     rsi,[intFil]
@@ -234,6 +369,7 @@ turnoZorro:
     add     rsp,64
 
     ;calculo la posicion: posición = (fila * número_de_columnas) + columna
+    ;(fila y columna van de 0 a 6) --> posDestino va de 0 a 48
 
     mov     rbx,[intFil]
     mov     rax,7;[line] ; nro de columnas
@@ -242,53 +378,58 @@ turnoZorro:
 
     imul    rax,rbx
     add     rax,r13
-    mov     [posicion],rax
+    mov     [posDestino],rax
     
-    mov     rdi,mjePos
-    mov     rsi,[posicion]
+    mov     rdi,mjePosDestino
+    mov     rsi,[posDestino]
     sub     rsp,64
     call    printf
     add     rsp,64
     
-    mov     ebx,[posicion]
-    mov     al,byte[tablero+ebx]
+    mov     rbx,[posDestino]
+    mov     al,byte[tablero+rbx]
     cmp     al,"_"
-    jne     badPos
+    jne     badPosZorro
 
         
-    xor     r12,r12
-    mov     r12,[posicion]
-    mov     ebx,[posZorro]
+    ;xor     r12,r12
+    mov     r12,[posDestino]
+    mov     rbx,[posZorro]
 
     sub     r12,rbx
     mov     [diff],r12;[Zorro] diferencia (recorrido/salto) = posApuntada - posActual 
 
-    cmp     dword[diff],-7;norte
-    je      mover
-    cmp     dword[diff],7;sur
-    je      mover
-    cmp     dword[diff],1;este
-    je      mover
-    cmp     dword[diff],-1;oeste
-    je      mover
-    cmp     dword[diff],8;sur este
-    je      mover
-    cmp     dword[diff],-8;nor oeste
-    je      mover
-    cmp     dword[diff],6;sur oeste
-    je      mover
-    cmp     dword[diff],-6;nor este
-    je      mover
+    cmp     qword[diff],-7;norte
+    je      moverZorro
+    cmp     qword[diff],7;sur
+    je      moverZorro
+    cmp     qword[diff],1;este
+    je      moverZorro
+    cmp     qword[diff],-1;oeste
+    je      moverZorro
+    cmp     qword[diff],8;sur este
+    je      moverZorro
+    cmp     qword[diff],-8;nor oeste
+    je      moverZorro
+    cmp     qword[diff],6;sur oeste
+    je      moverZorro
+    cmp     qword[diff],-6;nor este
+    je      moverZorro
 
-    badPos:
+
+        ;agregar caso de salto del zorro sobre oca.
+        ;diferencia mas grande [diff] && [diff/2] == O
+
+
+    badPosZorro:
     mov     rdi,mjePosInvalid
     sub     rsp,64
     call    printf
     add     rsp,64
 
-    jmp     pedirPos
+    jmp     pedirPosZorro
     
-    mover:
+    moverZorro:
   
     xor     rbx,rbx
     xor     rax,rax
@@ -296,18 +437,18 @@ turnoZorro:
     xor     rsi,rsi
     xor     rdx,rdx
     xor     r14,r14
-    mov     ebx,[posicion]
+    mov     rbx,[posDestino]
     mov     rdi,mjePiezaPos;
-    mov     rsi,[posicion]
-    mov     al,[tablero+ebx]
+    mov     rsi,[posDestino]
+    mov     al,[tablero+rbx]
     mov     dl,al
     sub     rsp,64
     call    printf
     add     rsp,64
 
     mov     rax,[posZorro]
-    mov     byte[tablero+eax],"_"
-    mov     byte[tablero+ebx],"X";
+    mov     byte[tablero+rax],"_"
+    mov     byte[tablero+rbx],"X";
 
 
     
@@ -316,10 +457,81 @@ turnoZorro:
     mov     [jugTurno],r13
 ret
 
+pedirPos:
+    pedirFila:
+    mov     rdi,mjeFila
+    sub     rsp,64       ;
+    call    printf      ;
+    add     rsp,64
+
+    mov     rdi,bufferFil
+    sub     rsp,8
+    call    gets
+    add     rsp,8
+
+    mov     rdi,bufferFil
+    mov     rsi,formatNum      
+	mov		rdx,intFil   ;Formateo el input, str a int    
+	sub		rsp,64
+	call	sscanf             
+	add		rsp,64
+
+    mov     rdi,[intFil]
+    sub     rsp,8
+    call    checkInt
+    add     rsp,8
+
+    cmp     rax,0
+    je      pedirFila
+
+
+; chequear valores de fila
+  
+    pedirColumna:
+    mov     rdi,mjeColum
+    sub     rsp,64       ;
+    call    printf      ;
+    add     rsp,64
+
+    mov     rdi,bufferCol
+    sub     rsp,8
+    call    gets
+    add     rsp,8
+ 
+    mov     rdi,bufferCol
+    mov     rsi,formatNum      
+	mov		rdx,intCol   ;Formateo el input, str a int    
+	sub		rsp,64
+	call	sscanf             
+	add		rsp,64
+
+    mov     rdi,[intCol]
+    sub     rsp,8
+    call    checkInt
+    add     rsp,8
+
+    cmp     rax,0
+    je      pedirColumna
+ret
+
+checkInt:
+    cmp     rax,0       ;del sscanf
+    je      endCheckInt
+
+    cmp     rdi,0     ;rax con valor 1
+    jl      invalid
+    cmp     rdi,6
+    jg      invalid
+
+    jmp     endCheckInt
+invalid:
+    mov     rax,0
+endCheckInt:
+ret
+
 
 
 printTablero:
-
 
     ;;;;;;;;;;;;; print index columnas
 
@@ -376,9 +588,10 @@ printTablero:
     inc     rbx
     inc     r12
 
-    cmp    r12,7
-    je     out
+    cmp     r12,7
+    je      out
     jmp     set
+    
     out:
 
     inc     r13
