@@ -53,10 +53,11 @@ section .data
     mjeTurnoZorro           db    "Turno de Zorro",10,0
     mjeTurnoOca             db    "Turno de Oca",10,0
     zorroCounter times 49   db    0
-    mode                    db    "rb",0
-    savemode                db    "wb",0
+    readMode                db    "rb",0
+    saveMode                db    "wb",0
     fileName                db    "tablero.bin",0
     saveFileName            db    "partida.bin",0
+    ocasComidasFileName     db    "ocasComidas.bin",0
     mjeOk                   db    10,"> Archivo abierto con exito!",10,10,0
     mjeErrorOpen            db    10,"> Error en apertura de archivo",10,10,0
     tamTablero              db    49
@@ -81,68 +82,83 @@ section .data
     registro times  0       db    "" 
     tablero times   49      db    0
 
-    titulo                  db    "Este es el juego de la oca. ¿Desea empezar nueva partida?",0
-    begin                   db    "El juego de la oca ya empezo",0
-    newRound                db    "escriba 'nueva partida' para empezar un nuevo juego",0
-    continue                db    "escriba 'cargar' para continuar una partida no terminada",0
-
-    msgSaveGame             db    "escriba 'guardar' para guardar la partida",0
-    msgSalir                db    "escriba 'salir' para terminar el juego",0
-    msgReandular            db    "escriba 'seguir' para continuar la partida",0
-
-    msgSaveError            db    "error al intentar guardar",0
-    msgSaveSuccess          db    "partida exitosamente guardada",0
 
 
-    msgPartidaNoGuardada    db    "¿seguro de que desea salir?",0
-    msgGanaElZorro          db    "El zorro gana",0
-    msgGananLasOcas         db    "Las ocas ganan",0
-    msgAdios                db    "hasta la proxima",0
+    regOcasComidas times 0  db    0
+
+    ;guardar y cargar partida
+    titulo                  db    "Este es el juego de la oca. ¿Desea empezar nueva partida?",10,0
+    begin                   db    "El juego de la oca ya empezo",10,0
+    newRound                db    "escriba 'nueva partida' para empezar un nuevo juego",10,0
+    continue                db    "escriba 'cargar' para continuar una partida no terminada",10,0
+    mjeOpcionInvalida       db    "La opcion ingresada es inválida",10,0
+
+    msgSaveGame             db    "Escriba 'guardar' para guardar la partida",10,0
+    msgSalir                db    "Escriba 'salir' para terminar el juego",10,0
+    msgReandular            db    "Escriba 'seguir' para continuar la partida",10,0
+
+    msgSaveError            db    "Error al intentar guardar",10,0
+    msgSaveSuccess          db    "Partida exitosamente guardada",10,0
+
+
+    msgPartidaNoGuardada    db    "¿seguro de que desea salir?",10,0
+    msgGanaElZorro          db    "El zorro gana",10,0
+    msgGananLasOcas         db    "Las ocas ganan",10,0
+    msgAdios                db    "hasta la proxima",10,0
+
+    partidaGuardada         dq    0
 
 section .bss
     
-    posZorro            resb    8
-    posOca              resb    8
-    bufferCol           resb    8
-    bufferFil           resb    8
-    buffer              resb    500
-    fileHandle          resq    1
-    bufferTablero       resb    96; 49*2
-    charActual          resq    1
+    posZorro                resb    8
+    posOca                  resb    8
+    bufferCol               resb    8
+    bufferFil               resb    8
+    buffer                  resb    500
+    fileHandle              resq    1
+    bufferTablero           resb    96; 49*2
+    charActual              resq    1
 
-    intCol              resd     1
-    intFil              resd     1
+    intCol                  resq     1
+    intFil                  resq     1
 
-    posicionX           resb    10
-    posicionO           resb    10
+    posicionX               resb    10
+    posicionO               resb    10
 
-    jugTurno            resb    8
+    jugTurno                resb    8
 
     ;para el archivo
-    fileID              resq    1
-    ocasComidas         resw    0
-    partidaGuardada     resb    0
+    fileID                  resq    1
+    ocasComidasStr          resq    1
+    ocasComidas             resq    1
+
+    ocasComidasHandle       resq    1
+
 
 section .text
 main:
     jmp     mainMenu
     
     openSaved:
+    sub     rsp, 8
+    call    cargarOcasComidas
+    add     rsp, 8
+
     ;Abro archivo
     mov     rdi, saveFileName
-    mov     rsi, mode
+    mov     rsi, readMode
     sub     rsp, 8
     call    fopen
     add     rsp, 8
-
     jmp     openFile
 
     newGame:
     mov     rdi, fileName
-    mov     rsi, mode
+    mov     rsi, readMode
     sub     rsp, 8
     call    fopen
     add     rsp, 8
+    mov     [ocasComidas], 0
     
     openFile:
     mov     qword[fileHandle],rax
@@ -158,58 +174,57 @@ main:
     ;Leo archivo
 
     mov     rdi,registro
-    mov     rsi,49
-    mov     rdx,1
+    mov     rsi, 49
+    mov     rdx, 1
     mov     rcx,qword[fileHandle]
-    sub     rsp,8
+    sub     rsp, 8
     call    fread
-    add     rsp,8
+    add     rsp, 8
 
-    cmp     rax,0
+    cmp     rax, 0
     jle     endProg
-    
+
     ;lectura de registro exitosa:
-   
 
 
-   ;   
+    mov     rdi,[fileHandle]
+    sub     rsp, 8
+    call    fclose
+    add     rsp, 8
 
     mov     r12,[nameZorro]
     mov     [jugTurno],r12
 
-    ;call    printTablero
+
 
     gameLoop: 
     
     call    printTablero
-    mov     r12,[jugTurno]
+
+    sub     rsp,8
+    call    verificarEstadoJuego   ;setea rax, con 1 
+    add     rsp,8
+
+    cmp     rax,1
+    jge     endProg
     
+    
+    mov     r12,[jugTurno]
     cmp     r12,[nameZorro]
     jne     notZorro
-    ;call    findPosZorro
+
     call    turnoZorro
     jmp     outG
     
     notZorro:
 
-    ;cmp     r12,[nameOca]
     call    turnoOca
 
     outG:
 
     loop    gameLoop
 
-    ;call    printTablero
-    ;
-    ;cmp
-;
-    ;call    turnoZorro
-    ;
-    ;call    findPosZorro
-;
-    ;call    endProg
-
-
+    endMain:
 ret
 
 turnoOca:
@@ -254,11 +269,11 @@ turnoOca:
 
     
     xor     r12,r12
-    mov     r12,[posicionX]
+    mov     r12,[posicionO]
     mov     ebx,[posOca]
 
     sub     r12,rbx
-    mov     [diff],r12;[Zorro] diferencia (recorrido/salto) = posApuntada - posActual 
+    mov     [diff],r12;[Oca] diferencia (recorrido/salto) = posApuntada - posActual 
 
     cmp     dword[diff],-7;norte
     je      moverOca
@@ -456,17 +471,17 @@ findPosZorro:
     jmp     l
 
     outP:
-
+/*
     mov     rdi,mjePosZorro    
     mov     rsi,[posZorro]
     sub     rsp,8
     call    printf
     add     rsp,8
+*/
 ret
 
 turnoZorro:
-    cmp     [ocasComidas], 12
-    je      ganaElZorro
+
     mov     rdi, msgSaveGame
     mPutsNotMain
     mov     rdi, msgReandular
@@ -518,7 +533,7 @@ turnoZorro:
     mov     rsi,formatNum       
 	mov		rdx,intCol   ;Formateo el input, str a int    
 	sub		rsp,64
-	call	sscanf             
+	call	sscanf
 	add		rsp,64
 
 
@@ -641,6 +656,7 @@ turnoZorro:
     mov     byte[tablero+eax],"_"
     mov     byte[tablero+ebx],"X";
 
+    ;falta actualizar posZorro
 
     
 
@@ -709,8 +725,8 @@ printTablero:
     inc     rbx
     inc     r12
 
-    cmp    r12,7
-    je     out
+    cmp     r12,7
+    je      out
     jmp     set
     out:
 
@@ -729,6 +745,7 @@ ret
 mainMenu:
     mov     rdi, titulo
     mPuts
+    pedirOpcion:
     mov     rdi, continue
     mPuts
     mov     rdi, newRound
@@ -739,6 +756,13 @@ mainMenu:
     je      openSaved
     cmp     qword[rdi], "nueva partida",0
     je      newGame
+    jne     opcionInvalida
+    
+opcionInvalida:
+    mov     rdi,mjeOpcionInvalida
+    mPuts
+    jmp     pedirOpcion
+
 
 
 openError:
@@ -746,20 +770,34 @@ openError:
     sub     rsp,8
     call    printf 
     add     rsp,8
-    jmp     mainMenumov
+
 
 endProg:
     mov     rdi,mjeFin
     sub     rsp,64
     call    printf 
     add     rsp,64
-ret
+    jmp     endMain
 
 saveGame:
+
+    mov     rdi, saveFileName
+    mov     rsi, saveMode
+    sub     rsp, 64
+    call    fopen     
+    add     rsp, 64
+    
+    mov     qword[fileHandle],rax
+    cmp     qword[fileHandle],0
+    jle     openError
+
+    
+
+    guardar:
     mov     rdi, registro
-    mov     rsi, 5
+    mov     rsi, 49
     mov     rdx, 1
-    mov     rcx, fileID
+    mov     rcx, qword[fileHandle]
     sub     rsp, 64
     call    fwrite
     add     rsp, 64
@@ -767,22 +805,32 @@ saveGame:
     cmp     byte[rax], 0
     jle     saveError
 
+    mov     rdi, qword[fileHandle]
+    sub     rsp, 64
+    call    fclose
+    add     rsp, 64
+
+    sub     rsp, 8
+    call    guardarOcasComidas
+    add     rsp, 8
+
     inc     [partidaGuardada]
     jmp     turnoZorro
-
 
 
     saveError:
     mov     rdi, msgSaveError
     mPutsNotMain
+    mov     rdi, [fileHandle]
+    sub     rsp, 64
+    call    fclose
+    add     rsp, 64
     jmp     turnoZorro
 
 
-ret
-
 exit:
     cmp     [partidaGuardada], 1
-    je      salir
+    jge     salir
     mov     rdi, msgPartidaNoGuardada
     mPutsNotMain
     mov     rdi, msgSalir
@@ -793,21 +841,305 @@ exit:
     mGetsNotMain    rdi
     cmp     rdi, "seguir"
     je      turnoZorro
+    
+    ; salir(sin guardar):
+    ; al no guardar la partida, hay que sobreescribir partida.bin para que sea igual a tablero.bin
 
-    salir:
-    mov     rdi, msgAdios
-    mPutsNotMain
-    mov     rdi, [fileID]
+    mov     rdi,fileName                ;abro tablero.bin para leer
+    mov     rsi,readMode
+    sub     rsp,8
+    call    fopen
+    add     rsp,8
+
+    mov     qword[fileHandle],rax
+    cmp     qword[fileHandle],0
+    jle     openError
+
+    mov     rdi,registro                ;copio en registro(cabecera de tablero) todo el contenido de tablero.bin
+    mov     rsi, 49
+    mov     rdx, 1
+    mov     rcx,qword[fileHandle]
+    sub     rsp, 8
+    call    fread
+    add     rsp, 8
+
+    mov     rdi,qword[fileHandle]       ;cierro tablero.bin
+    sub     rsp,8
+    call    fclose
+    add     rsp,8
+
+    mov     rdi,saveFileName            ;abro partida.bin, para copiar dentro el contenido de tablero.bin
+    mov     rsi,saveMode
+    sub     rsp,8
+    call    fopen
+    add     rsp,8
+
+    mov     qword[fileHandle],rax
+    cmp     qword[fileHandle],0
+    jle     openError
+
+    mov     rdi,tablero                 ;copio en partida.bin 
+    mov     rsi, 49
+    mov     rdx, 1
+    mov     rcx,qword[fileHandle]           
+    call    fwrite                          
+    add     rsp,8                           
+
+
+    mov     rdi,qword[fileHandle]              ;cierro partida.bin
+    sub     rsp,8                              
+    call    fclose
+    add     rsp,8
+
+    mov     rdi,ocasComidasFileName            ;abro ocasComidas.bin para escribir un 0
+    mov     rsi,saveMode
+    sub     rsp,8
+    call    fopen
+    add     rsp,8
+
+    mov     qword[fileHandle],rax
+    cmp     qword[fileHandle],0
+    jle     openError
+
+    mov     [ocasComidas],0
+    
+    mov     rdi,ocasComidasStr
+    mov     rsi,formatNum
+    mov     rdx,[ocasComidas]
+    sub     rsp,8
+    call    sprintf
+    add     rsp,8
+
+    mov     rdi,ocasComidasStr
+    mov     rsi,[fileHandle]
+    sub     rsp,8
+    call    fputs
+    add     rsp,8               
+
+
+/*
+    mov     rdi, ocasComidasFileName
+    mov     rsi, saveMode
+    sub     rsp, 8
+    call    fopen
+    add     rsp, 8
+    
+    mov     [ocasComidas],0
+    mov     rdi,regOcasComidas
+    mov     rsi,1
+    mov     rdx,1
+    mov     rcx,ocasComidasHandle
+    sub     rsp,8
+    call    fputs
+    add     rsp,8
+
+    mov     rdi, [fileHandle]
     sub     rsp, 64
     call    fclose
     add     rsp, 64
+    
+*/  salir:  
     jmp     endProg
 
+cargarOcasComidas:
+    mov     rdi, ocasComidasFileName
+    mov     rsi, readMode
+    sub     rsp, 8
+    call    fopen
+    add     rsp, 8
+    mov     qword[ocasComidasHandle],rax
+    cmp     [ocasComidasHandle],0
+    jle     openError
 
+    mov     rdi, ocasComidasStr
+    mov     rsi, 1                     ; o 2? porque el archivo puede tener 2 caracteres representando 2 digitos
+    mov     rdx, 1
+    mov     rcx, ocasComidasHandle
+    sub     rsp, 8
+    call    fread
+    add     rsp, 8
+    sub     rsp, 8
+    call    closeOcasComidas
+    add     rsp, 8
+
+
+    mov     rdi,ocasComidasStr 
+    mov     rsi,formatNum
+    mov     rdx,ocasComidas         ;Formateo de str a int
+    sub     rsp,64
+    call    sscanf
+    add     rsp,64
+ret
+
+guardarOcasComidas:
+    mov     rdi, ocasComidasFileName
+    mov     rsi, saveMode
+    sub     rsp, 8
+    call    fopen
+    add     rsp, 8
+    mov     qword[ocasComidasHandle],rax
+    cmp     [ocasComidasHandle],0
+    jle     openError
+
+    mov     rdi,ocasComidas
+    mov     rsi,rax
+    sub     rsp, 8
+    call    fputs
+    add     rsp, 8
+    sub     rsp, 8
+    call    closeOcasComidas
+    add     rsp, 8
+ret
+closeOcasComidas:
+    mov     rdi, [ocasComidasHandle]
+    sub     rsp, 8
+    call    fclose
+    add     rsp, 8
+ret
 ganaElZorro:
     mov     rdi, msgGanaElZorro
-    mPutsNotMain
+    mPuts
     mov     rdi, msgAdios
-    mPutsNotMain
-    jmp     endProg
+    mPuts
+    
+ret
 
+gananLasOcas:
+    mov     rdi, msgGananLasOcas
+    mPuts
+    mov     rdi, msgAdios
+    mPuts
+
+ret
+
+verificarEstadoJuego:
+    cmp     [ocasComidas], 12
+    je      victoriaZorro
+
+    sub     rsp, 8
+    call    findPosZorro
+    add     rsp, 8
+
+    ;comparo lo que esta cerca del zorro
+
+    xor     r10, r10
+    add     r10, posZorro
+    add     r10, -7;norte
+    cmp     byte[tablero+r10],"_"
+    je      nadieGana
+
+    xor     r10, r10
+    add     r10, posZorro
+    add     r10, 7;sur
+    cmp     byte[tablero+r10],"_"
+    je      nadieGana
+
+    xor     r10, r10
+    add     r10, posZorro
+    add     r10, 1;este
+    cmp     byte[tablero+r10],"_"
+    je      nadieGana
+
+    xor     r10, r10
+    add     r10, posZorro
+    add     r10, -1;oeste
+    cmp     byte[tablero+r10],"_"
+    je      nadieGana
+
+    xor     r10, r10
+    add     r10, posZorro
+    add     r10, 8;sureste
+    cmp     byte[tablero+r10],"_"
+    je      nadieGana
+
+    xor     r10, r10
+    add     r10, posZorro
+    add     r10, -8;noroeste
+    cmp     byte[tablero+r10],"_"
+    je      nadieGana
+
+    xor     r10, r10
+    add     r10, posZorro
+    add     r10, 6;suroeste
+    cmp     byte[tablero+r10],"_"
+    je      nadieGana
+
+    xor     r10, r10
+    add     r10, posZorro
+    add     r10, -6;noreste
+    cmp     byte[tablero+r10],"_"
+    je      nadieGana
+    
+    ;comparo lo no tan cerca del zorro
+
+    xor     r10, r10
+    add     r10, posZorro
+    add     r10, -14;norte
+    cmp     byte[tablero+r10],"_"
+    je      nadieGana
+    
+    xor     r10, r10
+    add     r10, posZorro
+    add     r10, 14;sur
+    cmp     byte[tablero+r10],"_"
+    je      nadieGana
+
+    xor     r10, r10
+    add     r10, posZorro
+    add     r10, 2;este
+    cmp     byte[tablero+r10],"_"
+    je      nadieGana
+
+    xor     r10, r10
+    add     r10, posZorro
+    add     r10, -2;oeste
+    cmp     byte[tablero+r10],"_"
+    je      nadieGana
+
+    xor     r10, r10
+    add     r10, posZorro
+    add     r10, 16;sureste
+    cmp     byte[tablero+r10],"_"
+    je      nadieGana
+
+    xor     r10, r10
+    add     r10, posZorro
+    add     r10, -16;noroeste
+    cmp     byte[tablero+r10],"_"
+    je      nadieGana
+
+    xor     r10, r10
+    add     r10, posZorro
+    add     r10, 12;suroeste
+    cmp     byte[tablero+r10],"_"
+    je      nadieGana
+
+    xor     r10, r10
+    add     r10, posZorro
+    add     r10, -12;noreste
+    cmp     byte[tablero+r10],"_"
+    je      nadieGana
+
+    ;como el zorro este encerrado, pierde
+    jmp     victoriaOcas
+    
+    victoriaZorro:
+    sub     rsp, 8
+    call    ganaElZorro
+    add     rsp, 8
+    mov     rax, 1
+    jmp     finVerificacion
+    
+    victoriaOcas:
+    sub     rsp, 8
+    call    gananLasOcas    
+    add     rsp, 8
+    mov     rax, 2
+    jmp     finVerificacion
+
+    nadieGana:
+    mov     rax,0
+
+
+    finVerificacion:
+ret
