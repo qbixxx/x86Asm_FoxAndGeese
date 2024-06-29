@@ -80,7 +80,7 @@ section .data
     mjeCoord                    db    "Se mueve a fila %i, columna %i",10,0
     
     mjePosInvalidaZorro         db    "El zorro no puede moverse a esa posicion, debe estar vacía (_)",10,0
-    mjePosInvalidaNoHayOca      db    "No hay una oca en la posicion seleccionada, ingrese otra posición",10,0                        Posicion invalida de origen de oca",10,0
+    mjePosInvalidaNoHayOca      db    "No hay una oca en la posicion seleccionada, ingrese otra posición",10,0
     mjePosInvalidaOcaEncerrada  db    "La oca no puede moverse, seleccione otra",10,0
     mjePosInvalidaOcaDestino    db    "Posicion invalida para la oca",10,0
 
@@ -152,6 +152,8 @@ section .bss
     ocasComidas                 resq    1
 
     ocasComidasHandle           resq    1
+
+    strDestino                  resb    100
 
 
 section .text
@@ -335,13 +337,15 @@ checkPosOca:
 
     jmp     pedirPosOca
 
+
+    ;mov     r10,[intFil]
+    ;mov     [filOcaOrigen],r10      No hace falta, no hay un mensaje que lo necesite
+    ;mov     r10,[intCol]
+    ;mov     [colOcaOrigen],r10
+
+
     checkOcaNoEncerrada:
-/*
-    mov     r10,[intFil]
-    mov     [filOcaOrigen],r10      No hace falta, no hay un mensaje que lo necesite
-    mov     r10,[intCol]
-    mov     [colOcaOrigen],r10
-*/
+
     xor     r10, r10
     add     r10, [posOca]
     add     r10, 7;sur
@@ -454,13 +458,13 @@ findPosZorro:
     jmp     l
 
     outP:
-/*
-    mov     rdi,mjePosZorro    
-    mov     rsi,[posZorro]
-    sub     rsp,8
-    call    printf
-    add     rsp,8
-*/
+
+    ;mov     rdi,mjePosZorro    
+    ;mov     rsi,[posZorro]
+    ;sub     rsp,8
+    ;call    printf
+    ;add     rsp,8
+
 ret
 
 turnoZorro:
@@ -528,8 +532,11 @@ turnoZorro:
 
     finTurnoZorro:
     mov     r13,[nameOca]
-    mov     [jugTurno],r13      ;[partidaGuardada] = 0 ?????
+    mov     [jugTurno],r13      
+    
+    mov     [partidaGuardada],0
 ret
+
 
 
 checkPosZorroDestino:
@@ -564,7 +571,7 @@ checkPosZorroDestino:
     sub     r12,rbx
     mov     [diff],r12;[Zorro] diferencia (recorrido/salto) = posApuntada - posActual 
 
-    mov     [checkOcaEnMedioResult],0         
+    mov     [checkOcaEnMedioResult],0
 
     mov     rbx,0
     iterarVectorPosCercanas:
@@ -585,7 +592,7 @@ checkPosZorroDestino:
     cmp     rbx,8
     je      badPosZorro
     
-    cmp     qword[posCercanas+rbx],r12
+    cmp     qword[posLejanas+rbx],r12
     je      checkOcaEnMedio         ;si salta con el je, tengo que setear checkResult
     inc     rbx
     jmp     iterarVectorPosLejanas
@@ -595,13 +602,13 @@ checkPosZorroDestino:
 
     mov     rbx,[diff]
 
-/*
-    cmp     [diff],0
-    jl      diffNegativo
-    jg      diffPositivo
 
-    diffNegativo:       ;necesito dividirlo en 2 y restarle eso a posZorro para fijarme si ahi si hay una oca
-*/
+   ; cmp     [diff],0
+    ;jl      diffNegativo
+    ;jg      diffPositivo
+
+    ;diffNegativo:       ;necesito dividirlo en 2 y restarle eso a posZorro para fijarme si ahi si hay una oca
+
     ;imul    rbx,-1
     mov     rdx,0       ;idiv hace:     rdx:rax / op        donde op (operando) debe ser un registro
     mov     rax,[diff]
@@ -789,8 +796,17 @@ mainMenu:
     mPuts
     mov     rdi, newRound
     mPuts
-    mov     rdi, 100
+    mov     rdi, strInput
     mGets   rdi
+
+
+    mov     rdi,strDestino
+    mov     rsi,strInput        
+    mov     rcx,[largo]
+    repe cmpsb
+
+    repe cmpsb
+
     cmp     qword[rdi], "cargar",0
     je      openSaved
     cmp     qword[rdi], "nueva partida",0
@@ -1075,7 +1091,7 @@ verificarEstadoJuego:
     mov     rax,[posZorro]
     add     rax,byte[posCercanas+rbx]
     inc     rbx
-    cmp     byte[tablero+rax],"_"     
+    cmp     byte[tablero+rax],"_"  
     jne     iterarPosCercanas
     je      nadieGana
 
