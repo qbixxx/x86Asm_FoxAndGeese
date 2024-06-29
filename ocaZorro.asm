@@ -41,98 +41,111 @@ extern fwrite
 ;=(1 * 7)+2
 
 section .data
-    eL                      db    "   ",0
-    diff                    dd    1
-    mjeDiff                 db    "Diferencia: %i",10,0
-    nameZorro               db    "Zorro",0
-    nameOca                 db    "Oca",0
-    mjePos                  db    "Posicion: %i",10,0  
-    mjePosZorro             db    "Posicion Zorro: %i",10,0  
-    mjePosOca               db    "Posicion Oca: %i",5,0
-    mjeFin                  db    "> Fin de programa",10,0
-    mjeTurnoZorro           db    "Turno de Zorro",10,0
-    mjeTurnoOca             db    "Turno de Oca",10,0
-    zorroCounter times 49   db    0
-    readMode                db    "rb",0
-    saveMode                db    "wb",0
-    fileName                db    "tablero.bin",0
-    saveFileName            db    "partida.bin",0
-    ocasComidasFileName     db    "ocasComidas.bin",0
-    mjeOk                   db    10,"> Archivo abierto con exito!",10,10,0
-    mjeErrorOpen            db    10,"> Error en apertura de archivo",10,10,0
-    tamTablero              db    49
-    mjeChar                 db    " %c ",0
-    nL                      db    10,0
-    line                    db    7
-    mjeFila                 db    "ingrese fila:",10,0
-    mjeColum                db    "ingrese columna:",10,0
+    eL                          db    "   ",0
+    diff                        dd    1
+    mjeDiff                     db    "Diferencia: %i",10,0
+    nameZorro                   db    "Zorro",0
+    nameOca                     db    "Oca",0
+    mjePos                      db    "Posicion: %i",10,0  
+    mjePosZorro                 db    "Posicion Zorro: %i",10,0  
+    mjePosOca                   db    "Posicion Oca: %i",5,0
+    mjeFin                      db    "> Fin de programa",10,0
+    mjeTurnoZorro               db    "Turno de Zorro",10,0
+    mjeTurnoOca                 db    "Turno de Oca",10,0
+    zorroCounter times 49       db    0
+    readMode                    db    "rb",0
+    saveMode                    db    "wb",0
+    fileName                    db    "tablero.bin",0
+    saveFileName                db    "partida.bin",0
+    ocasComidasFileName         db    "ocasComidas.bin",0
+    mjeOk                       db    10,"> Archivo abierto con exito!",10,10,0
+    mjeErrorOpen                db    10,"> Error en apertura de archivo",10,10,0
+    tamTablero                  db    49
+    mjeChar                     db    " %c ",0
+    nL                          db    10,0
+    line                        db    7
+    mjeFila                     db    "ingrese fila:",10,0
+    mjeColum                    db    "ingrese columna:",10,0
 
-    mjePiezaPos             db    "En la posicion %i hay un %c",10,0
-
-    prueba                  db    "prueba",10,0
     
-    formatNum               db    "%i",0
-    indexer                 db    " %i ",0
 
-    mjeCoord                db    "Se mueve a fila %i, columna %i",10,0
+    mjePosDestino               db    "Usted se mueve a la fila %li, columna %li",10,0
+
+    prueba                      db    "prueba",10,0
     
-    mjePosInvalid           db    "Posicion no valida",10,0
+    formatNum                   db    "%i",0
+    indexer                     db    " %i ",0
+
+    mjeCoord                    db    "Se mueve a fila %i, columna %i",10,0
+    
+    mjePosInvalidaZorro         db    "posicion invalida del zorro",10,0
+    mjePosInvalidaNoHayOca      db    "No hay una oca en la posicion seleccionada",10,0                        Posicion invalida de origen de oca",10,0
+    mjePosInvalidaOcaEncerrada  db    "La oca no puede moverse, seleccione otra",10,0
+    mjePosInvalidaOcaDestino    db    "Posicion invalida para la oca",10,0
+
 
     ;Registro del archivo
-    registro times  0       db    "" 
-    tablero times   49      db    0
+    registro times  0           db    "" 
+    tablero times   49          db    0
 
 
 
-    regOcasComidas times 0  db    0
+    regOcasComidas times 0      db    0
 
     ;guardar y cargar partida
-    titulo                  db    "Este es el juego de la oca. ¿Desea empezar nueva partida?",10,0
-    begin                   db    "El juego de la oca ya empezo",10,0
-    newRound                db    "escriba 'nueva partida' para empezar un nuevo juego",10,0
-    continue                db    "escriba 'cargar' para continuar una partida no terminada",10,0
-    mjeOpcionInvalida       db    "La opcion ingresada es inválida",10,0
+    titulo                      db    "Este es el juego de la oca. ¿Desea empezar nueva partida?",10,0
+    begin                       db    "El juego de la oca ya empezo",10,0
+    newRound                    db    "escriba 'nueva partida' para empezar un nuevo juego",10,0
+    continue                    db    "escriba 'cargar' para continuar una partida no terminada",10,0
+    mjeOpcionInvalida           db    "La opcion ingresada es inválida",10,0
 
-    msgSaveGame             db    "Escriba 'guardar' para guardar la partida",10,0
-    msgSalir                db    "Escriba 'salir' para terminar el juego",10,0
-    msgReandular            db    "Escriba 'seguir' para continuar la partida",10,0
+    msgSaveGame                 db    "Escriba 'guardar' para guardar la partida",10,0
+    msgSalir                    db    "Escriba 'salir' para terminar el juego",10,0
+    msgReandular                db    "Escriba 'seguir' para continuar la partida",10,0
 
-    msgSaveError            db    "Error al intentar guardar",10,0
-    msgSaveSuccess          db    "Partida exitosamente guardada",10,0
+    msgSaveError                db    "Error al intentar guardar",10,0
+    msgSaveSuccess              db    "Partida exitosamente guardada",10,0
 
 
-    msgPartidaNoGuardada    db    "¿seguro de que desea salir?",10,0
-    msgGanaElZorro          db    "El zorro gana",10,0
-    msgGananLasOcas         db    "Las ocas ganan",10,0
-    msgAdios                db    "hasta la proxima",10,0
+    msgPartidaNoGuardada        db    "¿seguro de que desea salir?",10,0
+    msgGanaElZorro              db    "El zorro gana",10,0
+    msgGananLasOcas             db    "Las ocas ganan",10,0
+    msgAdios                    db    "hasta la proxima",10,0
 
-    partidaGuardada         dq    0
+    partidaGuardada             dq    0
 
 section .bss
     
-    posZorro                resb    8
-    posOca                  resb    8
-    bufferCol               resb    8
-    bufferFil               resb    8
-    buffer                  resb    500
-    fileHandle              resq    1
-    bufferTablero           resb    96; 49*2
-    charActual              resq    1
+    posZorro                    resq    1
+    posOca                      resq    1
+    bufferCol                   resb    8
+    bufferFil                   resb    8
+    buffer                      resb    500
+    fileHandle                  resq    1
+    bufferTablero               resb    96; 49*2
+    charActual                  resq    1
 
-    intCol                  resq     1
-    intFil                  resq     1
+    intCol                      resq     1
+    intFil                      resq     1
 
-    posicionX               resb    10
-    posicionO               resb    10
+    posicionX                   resb    10
+    posicionO                   resb    10
 
-    jugTurno                resb    8
+    ;filOcaOrigen                resq    1          ;no los usamos
+    ;colOcaOrigen                resq    1
+    filOcaDestino               resq    1           ;los usamos para el printf mostrando fila y columna destino
+    colOcaDestino               resq    1
+    
+    posDestino                  resq    1
+
+    jugTurno                    resb    8
 
     ;para el archivo
-    fileID                  resq    1
-    ocasComidasStr          resq    1
-    ocasComidas             resq    1
+    fileID                      resq    1
+    ocasComidasStr              resq    1
+    ocasComidas                 resq    1
 
-    ocasComidasHandle       resq    1
+    ocasComidasHandle           resq    1
 
 
 section .text
@@ -208,7 +221,7 @@ main:
     cmp     rax,1
     jge     endProg
     
-    
+
     mov     r12,[jugTurno]
     cmp     r12,[nameZorro]
     jne     notZorro
@@ -230,101 +243,44 @@ ret
 turnoOca:
  
     mov     rdi,mjeTurnoOca
-    call puts
+    mPuts
 
-
-    
+    sub     rsp, 8
     call    checkPosOca
+    add     rsp, 8
 
-    checkDestinoOca
-
-    mov     rdi,mjeCoord
-    mov     rsi,[intFil]
-    mov     rdx,[intCol]
-    sub     rsp,64
-    call    printf
-    add     rsp,64
-
-    ;calculo la posicion: posición = (fila * número_de_columnas) + columna
-
-    mov     rbx,[intFil]
-    mov     rax,7;[line] ; nro de columnas
-
-    mov     r13,[intCol]
-
-    imul    rax,rbx
-    add     rax,r13
-    mov     [posicionO],rax
+    sub     rsp, 8
+    call    checkPosOcaDestino
+    add     rsp, 8
     
-    mov     rdi,mjePos
-    mov     rsi,[posicionO]
-    sub     rsp,64
-    call    printf
-    add     rsp,64
-    
-    mov     ebx,[posicionO]
-    mov     al,byte[tablero+ebx]
-    cmp     al,"_"
-    jne     badPosOca
 
-    
-    xor     r12,r12
-    mov     r12,[posicionO]
-    mov     ebx,[posOca]
-
-    sub     r12,rbx
-    mov     [diff],r12;[Oca] diferencia (recorrido/salto) = posApuntada - posActual 
-
-    cmp     dword[diff],-7;norte
-    je      moverOca
-    cmp     dword[diff],7;sur
-    je      moverOca
-    cmp     dword[diff],1;este
-    je      moverOca
-    cmp     dword[diff],-1;oeste
-    je      moverOca
-    cmp     dword[diff],8;sur este
-    je      moverOca
-    cmp     dword[diff],-8;nor oeste
-    je      moverOca
-    cmp     dword[diff],6;sur oeste
-    je      moverOca
-    cmp     dword[diff],-6;nor este
-    je      moverOca
-    jmp     badPosOca
-
-    
     moverOca:
-  
-    xor     rbx,rbx
-    xor     rax,rax
-    xor     rdi,rdi
-    xor     rsi,rsi
-    xor     rdx,rdx
-    xor     r14,r14
-    mov     ebx,[posicionO]
-    mov     rdi,mjePiezaPos;
-    mov     rsi,[posicionO]
-    mov     al,[tablero+ebx]
-    mov     dl,al
+
+    mov     rbx,[posDestino]
+
+    mov     rdi,mjePosDestino;
+    mov     rsi,[filOcaDestino]
+    mov     rdx,[colOcaDestino]
     sub     rsp,64
     call    printf
     add     rsp,64
 
-    mov     rax,[posZorro]
-    mov     byte[tablero+eax],"_"
-    mov     byte[tablero+ebx],"O";
+    mov     rbx,[posDestino]
+    mov     byte[tablero+rbx],"O"
+
+    mov     rbx,[posOca]
+    mov     byte[tablero+rbx],"_"
 
 
     
-
-    mov     r13,[nameOca]
+    mov     r13,[nameZorro]
     mov     [jugTurno],r13
 ret
 
 
 checkPosOca:
 
+    queOcaDeseaMover:
     mov     rdi,mjeFila
     sub     rsp, 64
     call    puts
@@ -370,24 +326,59 @@ checkPosOca:
 
     imul    rax,rbx
     add     rax,r13
-    mov     [posicionO],rax
+    mov     [posOca],rax
 
 
-    mov     rbx,[posicionO]
+    mov     rbx,[posOca]
     
 
     cmp     byte[tablero+rbx],"O"
 
-    jne     badPosOca
-    je      posCaidaOca
-    badPosOca:
-    mov     rdi,mjePosInvalid
+    jne     badPosOcaOrigen
+    je      checkOcaNoEncerrada
+    
+    badPosOcaOrigen:
+    mov     rdi,mjePosInvalidaNoHayOca
     sub     rsp,64
     call    printf
     add     rsp,64
 
-    jmp     checkPosOca
+    jmp     queOcaDeseaMover
 
+    badPosOcaEncerrada:
+    mov     rdi,mjePosInvalidaOcaEncerrada
+    sub     rsp,64
+    call    printf
+    add     rsp,64
+
+    jmp     queOcaDeseaMover
+
+    checkOcaNoEncerrada:
+/*
+    mov     r10,[intFil]
+    mov     [filOcaOrigen],r10
+    mov     r10,[intCol]
+    mov     [colOcaOrigen],r10
+*/
+    xor     r10, r10
+    add     r10, rbx
+    add     r10, 7;sur
+    cmp     byte[tablero+r10], "_"
+    jne     badPosOcaEncerrada
+
+    add     r10, -7
+    add     r10, 1;este
+    cmp     byte[tablero+r10], "_"
+    jne     badPosOcaEncerrada
+    add     r10, -2;oeste
+    cmp     byte[tablero+r10], "_"
+    jne     badPosOcaEncerrada
+
+    finChequeoOca:
+ret
+
+checkPosOcaDestino:
+    
     posCaidaOca:
 
     mov     rdi,mjeFila
@@ -399,7 +390,6 @@ checkPosOca:
     sub     rsp, 64
     call    gets
     add     rsp, 64
-
 
     mov     rdi,bufferFil
     mov     rsi,formatNum       
@@ -422,7 +412,7 @@ checkPosOca:
     mov     rsi,formatNum       
 	mov		rdx,intCol   ;Formateo el input, str a int
 	sub		rsp,64
-	call	sscanf             
+	call	sscanf
 	add		rsp,64
 
     ;encuentro el destino
@@ -435,19 +425,78 @@ checkPosOca:
 
     imul    rax,rbx
     add     rax,r13
-    mov     [posicionO],rax
+    mov     [posDestino],rax
 
 
-    mov     rbx,[posicionO]
-    
+    mov     rbx,[posDestino]
 
     cmp     byte[tablero+rbx],"_"
 
-    jne     badPosOca
     je      checkDestinoOca
 
-ret
+    badPosOcaDestino:
+    mov     rdi,mjePosInvalidaOcaDestino
+    sub     rsp,64
+    call    printf
+    add     rsp,64
 
+    jmp     posCaidaOca
+
+
+    checkDestinoOca:
+
+
+    mov     r10,[intFil]
+    mov     [filOcaDestino],r10
+    mov     r10,[intCol]
+    mov     [colOcaDestino],r10
+
+/*
+
+    ;calculo posOca
+    mov     rbx,[filOcaOrigen]
+    mov     rax,7;[line] ; nro de columnas
+
+    mov     r13,[colOcaOrigen]
+
+    imul    rax,rbx
+    add     rax,r13
+    mov     [posOca],rax
+
+    ;calculo posDestino
+    mov     rbx,[filOcaDestino]
+    mov     rax,7;[line] ; nro de columnas
+
+    mov     r13,[colOcaDestino]
+
+    imul    rax,rbx
+    add     rax,r13
+    mov     [posDestino],rax
+*/   
+
+    ;chequeo si posDestino esta al sur, este, o oeste de posOca
+    mov     rax,[posOca]
+    add     rax,7
+    cmp     [posDestino],rax
+    jne     badPosOcaDestino
+    je      finChequeoOcaDestino
+
+
+    mov     rax,[posOca]
+    add     rax,1
+    cmp     [posDestino],rax
+    jne     badPosOcaDestino
+    je      finChequeoOcaDestino
+
+
+    mov     rax,[posOca]
+    add     rax,-1
+    cmp     [posDestino],rax
+    jne     badPosOcaDestino
+    je      finChequeoOcaDestino
+
+    finChequeoOcaDestino:
+ret
 
 findPosZorro:
 
@@ -843,9 +892,10 @@ exit:
     je      turnoZorro
     
     ; salir(sin guardar):
-    ; al no guardar la partida, hay que sobreescribir partida.bin para que sea igual a tablero.bin
 
-    mov     rdi,fileName                ;abro tablero.bin para leer
+/*
+
+    mov     rdi,fileName
     mov     rsi,readMode
     sub     rsp,8
     call    fopen
@@ -916,8 +966,6 @@ exit:
     call    fputs
     add     rsp,8               
 
-
-/*
     mov     rdi, ocasComidasFileName
     mov     rsi, saveMode
     sub     rsp, 8
@@ -938,7 +986,8 @@ exit:
     call    fclose
     add     rsp, 64
     
-*/  salir:  
+*/
+    salir:  
     jmp     endProg
 
 cargarOcasComidas:
@@ -952,7 +1001,7 @@ cargarOcasComidas:
     jle     openError
 
     mov     rdi, ocasComidasStr
-    mov     rsi, 1                     ; o 2? porque el archivo puede tener 2 caracteres representando 2 digitos
+    mov     rsi, 1
     mov     rdx, 1
     mov     rcx, ocasComidasHandle
     sub     rsp, 8
@@ -961,7 +1010,6 @@ cargarOcasComidas:
     sub     rsp, 8
     call    closeOcasComidas
     add     rsp, 8
-
 
     mov     rdi,ocasComidasStr 
     mov     rsi,formatNum
