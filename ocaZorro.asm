@@ -33,6 +33,9 @@ extern printf
 extern sscanf
 extern gets
 
+extern strcmp
+
+extern fputs
 extern fopen
 extern fread
 extern fclose
@@ -42,7 +45,7 @@ extern fwrite
 
 section .data
     eL                          db    "   ",0
-    diff                        dd    1
+    diff                        dq    1
     mjeDiff                     db    "Diferencia: %i",10,0
     nameZorro                   db    "Zorro",0
     nameOca                     db    "Oca",0
@@ -55,19 +58,20 @@ section .data
     zorroCounter times 49       db    0
     readMode                    db    "rb",0
     saveMode                    db    "wb",0
-    fileName                    db    "tablero.bin",0
-    saveFileName                db    "partida.bin",0
+    tableroNameFile                    db    "tablero.bin",0
+    partidaFileName                db    "partida.bin",0
     ocasComidasFileName         db    "ocasComidas.bin",0
     mjeOk                       db    10,"> Archivo abierto con exito!",10,10,0
     mjeErrorOpen                db    10,"> Error en apertura de archivo",10,10,0
     tamTablero                  db    49
     mjeChar                     db    " %c ",0
-    nL                          db    10,0
+    nL                          db    "",10,0
     line                        db    7
-    mjeFila                     db    "ingrese fila:",10,0
-    mjeColum                    db    "ingrese columna:",10,0
+    mjeFila                     db    "ingrese fila:",0
+    mjeColum                    db    "ingrese columna:",0
 
-    
+    posCercanas                 dq    -7,7,1,-1,8,-8,6,-6
+    posLejanas                  dq    -14,14,2,-2,16,-16,12,-12
 
     mjePosDestino               db    "Usted se mueve a la fila %li, columna %li",10,0
 
@@ -78,11 +82,15 @@ section .data
 
     mjeCoord                    db    "Se mueve a fila %i, columna %i",10,0
     
-    mjePosInvalidaZorro         db    "posicion invalida del zorro",10,0
-    mjePosInvalidaNoHayOca      db    "No hay una oca en la posicion seleccionada",10,0                        Posicion invalida de origen de oca",10,0
+    mjePosInvalidaZorro         db    "El zorro no puede moverse a esa posicion",10,0
+    mjePosInvalidaNoHayOca      db    "No hay una oca en la posicion seleccionada, ingrese otra posición",10,0
     mjePosInvalidaOcaEncerrada  db    "La oca no puede moverse, seleccione otra",10,0
     mjePosInvalidaOcaDestino    db    "Posicion invalida para la oca",10,0
 
+    checkNadieGana              db    0
+
+    mjeOcasComidas              db "Ocas comidas: %i",0
+    
 
     ;Registro del archivo
     registro times  0           db    "" 
@@ -95,13 +103,19 @@ section .data
     ;guardar y cargar partida
     titulo                      db    "Este es el juego de la oca. ¿Desea empezar nueva partida?",10,0
     begin                       db    "El juego de la oca ya empezo",10,0
-    newRound                    db    "escriba 'nueva partida' para empezar un nuevo juego",10,0
-    continue                    db    "escriba 'cargar' para continuar una partida no terminada",10,0
+    mjeNewRound                    db    "Escriba 'nuevo' para empezar un nuevo juego",0
+    mjeContinue                    db    "Escriba 'cargar' para continuar una partida no terminada",0
     mjeOpcionInvalida           db    "La opcion ingresada es inválida",10,0
 
     msgSaveGame                 db    "Escriba 'guardar' para guardar la partida",10,0
     msgSalir                    db    "Escriba 'salir' para terminar el juego",10,0
-    msgReandular                db    "Escriba 'seguir' para continuar la partida",10,0
+    msgReanudar                 db    "Escriba 'seguir' para continuar la partida",10,0
+
+    opGuardarStr                db    "guardar",0
+    opSalirStr                  db    "salir",0
+    opSeguirStr                 db    "seguir",0
+    opNuevoStr                  db    "nuevo",0
+    opCargarStr                 db    "cargar",0
 
     msgSaveError                db    "Error al intentar guardar",10,0
     msgSaveSuccess              db    "Partida exitosamente guardada",10,0
@@ -112,7 +126,10 @@ section .data
     msgGananLasOcas             db    "Las ocas ganan",10,0
     msgAdios                    db    "hasta la proxima",10,0
 
+    mjeA                        db "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+
     partidaGuardada             dq    0
+
 
 section .bss
     
@@ -131,6 +148,9 @@ section .bss
     posicionX                   resb    10
     posicionO                   resb    10
 
+    checkOcaEnMedioResult       resq    1
+    posOcaEnMedio               resq    1
+
     ;filOcaOrigen                resq    1          ;no los usamos
     ;colOcaOrigen                resq    1
     filOcaDestino               resq    1           ;los usamos para el printf mostrando fila y columna destino
@@ -143,9 +163,14 @@ section .bss
     ;para el archivo
     fileID                      resq    1
     ocasComidasStr              resq    1
-    ocasComidas                 resq    1
+    ocasComidas                 resb    1
 
     ocasComidasHandle           resq    1
+
+    strDestino                  resb    100
+    strInput                    resb    50
+
+    
 
 
 section .text
@@ -158,7 +183,7 @@ main:
     add     rsp, 8
 
     ;Abro archivo
-    mov     rdi, saveFileName
+    mov     rdi, partidaFileName
     mov     rsi, readMode
     sub     rsp, 8
     call    fopen
@@ -166,12 +191,12 @@ main:
     jmp     openFile
 
     newGame:
-    mov     rdi, fileName
+    mov     rdi, tableroNameFile
     mov     rsi, readMode
     sub     rsp, 8
     call    fopen
     add     rsp, 8
-    mov     [ocasComidas], 0
+    mov     qword[ocasComidas], 0
     
     openFile:
     mov     qword[fileHandle],rax
@@ -199,7 +224,6 @@ main:
 
     ;lectura de registro exitosa:
 
-
     mov     rdi,[fileHandle]
     sub     rsp, 8
     call    fclose
@@ -208,11 +232,20 @@ main:
     mov     r12,[nameZorro]
     mov     [jugTurno],r12
 
-
-
     gameLoop: 
-    
+
+    mov     rdi, nameZorro
+    mPuts
+
+    sub     rsp,8
     call    printTablero
+    add     rsp,8
+
+    mov     rdi,mjeOcasComidas
+    mov     rsi,[ocasComidas]
+    sub     rsp,8
+    call    printf
+    add     rsp,8
 
     sub     rsp,8
     call    verificarEstadoJuego   ;setea rax, con 1 
@@ -226,16 +259,20 @@ main:
     cmp     r12,[nameZorro]
     jne     notZorro
 
+    sub     rsp,8
     call    turnoZorro
+    add     rsp,8
     jmp     outG
     
     notZorro:
 
+    sub     rsp,8
     call    turnoOca
+    add     rsp,8
 
     outG:
 
-    loop    gameLoop
+    jmp     gameLoop
 
     endMain:
 ret
@@ -244,11 +281,14 @@ turnoOca:
  
     mov     rdi,mjeTurnoOca
     mPuts
+    
 
+    ;agregar mensaje para que se ingrese posicion Origen
     sub     rsp, 8
     call    checkPosOca
     add     rsp, 8
 
+    ;agregar mensaje para que se ingrese posicion Destino
     sub     rsp, 8
     call    checkPosOcaDestino
     add     rsp, 8
@@ -256,14 +296,20 @@ turnoOca:
 
     moverOca:
 
-    mov     rbx,[posDestino]
+
+
+   ; mov     rbx,[posDestino]       ; ??? ya esta un poco mas abajo
+
+    mov     rdi,mjeA
+    call    puts
 
     mov     rdi,mjePosDestino;
     mov     rsi,[filOcaDestino]
     mov     rdx,[colOcaDestino]
-    sub     rsp,64
+    
+    sub     rsp,8
     call    printf
-    add     rsp,64
+    add     rsp,8
 
     mov     rbx,[posDestino]
     mov     byte[tablero+rbx],"O"
@@ -280,43 +326,16 @@ ret
 
 checkPosOca:
 
-    queOcaDeseaMover:
-    mov     rdi,mjeFila
-    sub     rsp, 64
+    pedirPosOca:
+    
+    sub     rsp,8
+    call    pedirPos            ;setea intFil y intCol
+    add     rsp,8
+
+    ;encuentro la posicion origen de la oca 
+
+    mov     rdi,nameOca
     call    puts
-    add     rsp, 64
-
-    mov     rdi,bufferFil
-    sub     rsp, 64
-    call    gets
-    add     rsp, 64
-
-
-    mov     rdi,bufferFil
-    mov     rsi,formatNum       
-	mov		rdx,intFil   ;Formateo el input, str a int
-	sub		rsp,64
-	call	sscanf
-	add		rsp,64
-
-    mov     rdi,mjeColum
-    sub     rsp,64
-    call    puts
-    add     rsp,64
-
-    mov     rdi,bufferCol
-    sub     rsp, 64
-    call    gets
-    add     rsp, 64
- 
-    mov     rdi,bufferCol
-    mov     rsi,formatNum       
-	mov		rdx,intCol   ;Formateo el input, str a int
-	sub		rsp,64
-	call	sscanf             
-	add		rsp,64
-
-    ;encuentro e imprimo la posicion de la oca
 
     xor     rbx,rbx
     mov     rbx,[intFil]
@@ -339,81 +358,59 @@ checkPosOca:
     
     badPosOcaOrigen:
     mov     rdi,mjePosInvalidaNoHayOca
-    sub     rsp,64
+    sub     rsp,8
     call    printf
-    add     rsp,64
+    add     rsp,8
 
-    jmp     queOcaDeseaMover
+    jmp     pedirPosOca
 
     badPosOcaEncerrada:
     mov     rdi,mjePosInvalidaOcaEncerrada
-    sub     rsp,64
+    sub     rsp,8
     call    printf
-    add     rsp,64
+    add     rsp,8
 
-    jmp     queOcaDeseaMover
+    jmp     pedirPosOca
+
+
+    ;mov     r10,[intFil]
+    ;mov     [filOcaOrigen],r10      No hace falta, no hay un mensaje que lo necesite
+    ;mov     r10,[intCol]
+    ;mov     [colOcaOrigen],r10
+
+
 
     checkOcaNoEncerrada:
-/*
-    mov     r10,[intFil]
-    mov     [filOcaOrigen],r10
-    mov     r10,[intCol]
-    mov     [colOcaOrigen],r10
-*/
+
     xor     r10, r10
-    add     r10, rbx
+    add     r10, [posOca]
     add     r10, 7;sur
     cmp     byte[tablero+r10], "_"
-    jne     badPosOcaEncerrada
+    ;jne     badPosOcaEncerrada              ; VER
+    je      finChequeoOca
 
     add     r10, -7
     add     r10, 1;este
     cmp     byte[tablero+r10], "_"
-    jne     badPosOcaEncerrada
+    ;jne     badPosOcaEncerrada
+    je      finChequeoOca
+
+
     add     r10, -2;oeste
     cmp     byte[tablero+r10], "_"
+    
     jne     badPosOcaEncerrada
-
+    
     finChequeoOca:
 ret
 
 checkPosOcaDestino:
     
-    posCaidaOca:
+    pedirPosOcaDestino:
 
-    mov     rdi,mjeFila
-    sub     rsp, 64
-    call    puts
-    add     rsp, 64
-
-    mov     rdi,bufferFil
-    sub     rsp, 64
-    call    gets
-    add     rsp, 64
-
-    mov     rdi,bufferFil
-    mov     rsi,formatNum       
-	mov		rdx,intFil   ;Formateo el input, str a int
-	sub		rsp,64
-	call	sscanf
-	add		rsp,64
-
-    mov     rdi,mjeColum
-    sub     rsp,64
-    call    puts
-    add     rsp,64
-
-    mov     rdi,bufferCol
-    sub     rsp, 64
-    call    gets
-    add     rsp, 64
- 
-    mov     rdi,bufferCol
-    mov     rsi,formatNum       
-	mov		rdx,intCol   ;Formateo el input, str a int
-	sub		rsp,64
-	call	sscanf
-	add		rsp,64
+    sub     rsp,8
+    call    pedirPos        ;setea intFil y intCol
+    add     rsp,8
 
     ;encuentro el destino
 
@@ -436,56 +433,33 @@ checkPosOcaDestino:
 
     badPosOcaDestino:
     mov     rdi,mjePosInvalidaOcaDestino
-    sub     rsp,64
+    sub     rsp,8
     call    printf
-    add     rsp,64
+    add     rsp,8
 
-    jmp     posCaidaOca
+    jmp     pedirPosOcaDestino
 
 
     checkDestinoOca:
 
-
-    mov     r10,[intFil]
+    mov     r10,[intFil]                ;los guardo para mostrarlos luego
     mov     [filOcaDestino],r10
     mov     r10,[intCol]
     mov     [colOcaDestino],r10
-
-/*
-
-    ;calculo posOca
-    mov     rbx,[filOcaOrigen]
-    mov     rax,7;[line] ; nro de columnas
-
-    mov     r13,[colOcaOrigen]
-
-    imul    rax,rbx
-    add     rax,r13
-    mov     [posOca],rax
-
-    ;calculo posDestino
-    mov     rbx,[filOcaDestino]
-    mov     rax,7;[line] ; nro de columnas
-
-    mov     r13,[colOcaDestino]
-
-    imul    rax,rbx
-    add     rax,r13
-    mov     [posDestino],rax
-*/   
 
     ;chequeo si posDestino esta al sur, este, o oeste de posOca
     mov     rax,[posOca]
     add     rax,7
     cmp     [posDestino],rax
-    jne     badPosOcaDestino
+    ;jne     badPosOcaDestino
+    ;je      finChequeoOcaDestino
     je      finChequeoOcaDestino
-
 
     mov     rax,[posOca]
     add     rax,1
     cmp     [posDestino],rax
-    jne     badPosOcaDestino
+    ;jne     badPosOcaDestino
+    ;je      finChequeoOcaDestino
     je      finChequeoOcaDestino
 
 
@@ -493,7 +467,7 @@ checkPosOcaDestino:
     add     rax,-1
     cmp     [posDestino],rax
     jne     badPosOcaDestino
-    je      finChequeoOcaDestino
+
 
     finChequeoOcaDestino:
 ret
@@ -509,7 +483,7 @@ findPosZorro:
     cmp     byte[tablero+rbx],"X"
 
     jne     sig
-    mov     byte[posZorro],bl
+    mov     qword[posZorro],rbx
     jmp     outP
     sig:
 
@@ -520,30 +494,41 @@ findPosZorro:
     jmp     l
 
     outP:
-/*
-    mov     rdi,mjePosZorro    
-    mov     rsi,[posZorro]
-    sub     rsp,8
-    call    printf
-    add     rsp,8
-*/
+
+    ;mov     rdi,mjePosZorro    
+    ;mov     rsi,[posZorro]
+    ;sub     rsp,8
+    ;call    printf
+    ;add     rsp,8
+
 ret
 
 turnoZorro:
 
-    mov     rdi, msgSaveGame
-    mPutsNotMain
-    mov     rdi, msgReandular
-    mPutsNotMain
-    mov     rdi, msgSalir
-    mPutsNotMain
-    mov     rdi, 100
-    mGetsNotMain    rdi
-    cmp     qword[rdi], "guardar"
-    je      saveGame
-    cmp     qword[rdi], "salir"
-    je      exit
-
+    ;mov     rdi, msgSaveGame
+    ;mPutsNotMain
+    ;mov     rdi, msgReanudar
+    ;mPutsNotMain
+    ;mov     rdi, msgSalir
+    ;mPutsNotMain
+    ; 
+    ;mGets   strInput
+;
+    ;mov     rdi,strInput
+    ;mov     rsi,opGuardarStr
+    ;sub     rsp,8
+    ;call    strcmp
+    ;add     rsp,8
+    ;cmp     rax,0
+    ;je      saveGame
+;
+    ;mov     rdi,strInput
+    ;mov     rsi,opSalirStr
+    ;sub     rsp,8
+    ;call    strcmp
+    ;add     rsp,8
+    ;cmp     rax,0
+    ;je      exit
 
 
     seguirPartida:
@@ -551,49 +536,57 @@ turnoZorro:
     sub     rsp,64       ;
     call    printf      ;
     add     rsp,64  
+    mov     rdi,mjeOcasComidas
+    mov     rsi,[ocasComidas]
+    sub     rsp,8
+    call    printf
+    add     rsp,8
+    
 
-    call    findPosZorro
+    ;sub     rsp,8
+    call    findPosZorro        ;setea posZorro
+    ;add     rsp,8
 
-    pedirPos:
-    mov     rdi,mjeFila
-    sub     rsp,64       ;
-    call    printf      ;
-    add     rsp,64
+;-------------------------------------------
+    sub     rsp,8
+    call    checkPosZorroDestino    ;setea posDestino
+    add     rsp,8                ;dentro pedimos posicion, y chequeamos, y la vuelta, mandamos el mensaje de "usted se mueve a..."
 
-    mov     rdi,bufferFil
-    call    gets
-
-    mov     rdi,bufferFil
-    mov     rsi,formatNum       
-	mov		rdx,intFil   ;Formateo el input, str a int    
-	sub		rsp,64
-	call	sscanf             
-	add		rsp,64
-
-    mov     rdi,mjeColum
-    sub     rsp,64       ;
-    call    printf      ;
-    add     rsp,64
-
-    mov     rdi,bufferCol
-    call    gets
  
-    mov     rdi,bufferCol
-    mov     rsi,formatNum       
-	mov		rdx,intCol   ;Formateo el input, str a int    
-	sub		rsp,64
-	call	sscanf
-	add		rsp,64
+    ;moverZorro:
 
-
-    mov     rdi,mjeCoord
+    mov     rdi,mjePosDestino
     mov     rsi,[intFil]
     mov     rdx,[intCol]
-    sub     rsp,64
+    sub     rsp,8
     call    printf
-    add     rsp,64
+    add     rsp,8
 
-    ;calculo la posicion: posición = (fila * número_de_columnas) + columna
+    ;cmp     byte[checkOcaEnMedioResult],1
+    ;je      saltarOca
+
+    
+    mov     rbx,[posDestino]
+    mov     byte[tablero+rbx],"X"
+    mov     rbx,[posZorro]
+    mov     byte[tablero+rbx],"_"
+
+    finTurnoZorro:
+    mov     r13,[nameOca]
+    mov     [jugTurno],r13      
+    
+    mov     qword[partidaGuardada],0
+ret
+
+
+
+checkPosZorroDestino:
+
+    pedirPosZorro:
+    sub     rsp,8
+    call    pedirPos        ;setea intFil y intCol
+    add     rsp,8
+
 
     mov     rbx,[intFil]
     mov     rax,7;[line] ; nro de columnas
@@ -602,130 +595,234 @@ turnoZorro:
 
     imul    rax,rbx
     add     rax,r13
-    mov     [posicionX],rax
-    
-    mov     rdi,mjePos
-    mov     rsi,[posicionX]
-    sub     rsp,64
-    call    printf
-    add     rsp,64
-    
-    mov     ebx,[posicionX]
-    mov     al,byte[tablero+ebx]
+    mov     [posDestino],rax
+
+
+    ;me fijo si esta vacia
+    mov     rbx,[posDestino]
+    mov     al,byte[tablero+rbx]
     cmp     al,"_"
     jne     badPosZorro
 
-        
+
+    ;Me fijo si es una posicion proxima inmediata
     xor     r12,r12
-    mov     r12,[posicionX]
-    mov     ebx,[posZorro]
+    mov     r12,[posDestino]
+    mov     rbx,[posZorro]
 
     sub     r12,rbx
     mov     [diff],r12;[Zorro] diferencia (recorrido/salto) = posApuntada - posActual 
 
-    cmp     dword[diff],-7;norte
-    je      moverZorro
-    cmp     dword[diff],7;sur
-    je      moverZorro
-    cmp     dword[diff],1;este
-    je      moverZorro
-    cmp     dword[diff],-1;oeste
-    je      moverZorro
-    cmp     dword[diff],8;sur este
-    je      moverZorro
-    cmp     dword[diff],-8;nor oeste
-    je      moverZorro
-    cmp     dword[diff],6;sur oeste
-    je      moverZorro
-    cmp     dword[diff],-6;nor este
-    je      moverZorro
+    mov     qword[checkOcaEnMedioResult],0
 
-    ;agregar caso de salto del zorro sobre oca.
+    ;mov     rbx,0
+    ;iterarVectorPosCercanas:
+    ;cmp     rbx,8
+    ;je      seguirCheckPosLejanas
     
-    cmp     dword[diff],-14;norte
-    je      saltearOca
-    cmp     dword[diff],14;sur
-    je      saltearOca
-    cmp     dword[diff],2;este
-    je      saltearOca
-    cmp     dword[diff],-2;oeste
-    je      saltearOca
-    cmp     dword[diff],16;sur este
-    je      saltearOca
-    cmp     dword[diff],-16;nor oeste
-    je      saltearOca
-    cmp     dword[diff],12;sur oeste
-    je      saltearOca
-    cmp     dword[diff],-12;nor este
-    je      saltearOca
 
-    ;diferencia mas grande [diff] && [diff/2] == O
+
+    ;cercanas
+    cmp     r12,-7;norte
+    je      finCheckPosZorroDestino
+    cmp     r12,7;sur
+    je      finCheckPosZorroDestino
+    cmp     r12,1;este
+    je      finCheckPosZorroDestino
+    cmp     r12,-1;oeste
+    je      finCheckPosZorroDestino
+    cmp     r12,8;sur este
+    je      finCheckPosZorroDestino
+    cmp     r12,-8;nor oeste
+    je      finCheckPosZorroDestino
+    cmp     r12,6;sur oeste
+    je      finCheckPosZorroDestino
+    cmp     r12,-6;nor este
+    je      finCheckPosZorroDestino
+    ;inc     rbx
+
+    ;lejanas
+    cmp     r12,14
+    je      checkOcaEnMedio
+    cmp     r12,-14
+    je      checkOcaEnMedio
+    cmp     r12,2
+    je      checkOcaEnMedio
+    cmp     r12,-2
+    je      checkOcaEnMedio
+    cmp     r12,16
+    je      checkOcaEnMedio
+    cmp     r12,-16
+    je      checkOcaEnMedio
+    cmp     r12,12
+    je      checkOcaEnMedio
+    cmp     r12,-12
+    je      checkOcaEnMedio
+    jmp     pedirPosZorro
+
+    ;:jmp     iterarVectorPosCercanas
+
+
+    ;cmp     byte[posCercanas+rbx],r12           ;r12 tiene el valor diff
+    ;je      finCheckPosZorroDestino
+    ;inc     rbx
+    ;jmp     iterarVectorPosCercanas
+
+    ;Si se llego aca, entonces posDestino no es cercano
+    ;Tengo que ver si es uno lejano, y si lo es, ver si hay una oca en el medio
+    ;seguirCheckPosLejanas:  
+    ;           mov     rdi,nameZorro
+    ;call    puts 
+    ;mov     rbx,0
+    ;iterarVectorPosLejanas:
+    ;cmp     rbx,8
+    ;je      badPosZorro
+    ;
+    ;cmp     qword[posLejanas+rbx],r12
+    ;je      checkOcaEnMedio         ;si salta con el je, tengo que setear checkResult
+    ;inc     rbx
+    ;jmp     iterarVectorPosLejanas
+
+
+    checkOcaEnMedio:
+    
+    mov     rbx,[diff]
+
+ 
+   ; cmp     [diff],0
+    ;jl      diffNegativo
+    ;jg      diffPositivo
+
+    ;diffNegativo:       ;necesito dividirlo en 2 y restarle eso a posZorro para fijarme si ahi si hay una oca
+
+    ;imul    rbx,-1
+    
+    mov     rdx,0       ;idiv hace:     rdx:rax / op        donde op (operando) debe ser un registro
+    mov     rax,[diff]
+    mov     r10,2       ;valor del divisor:2 -> lo copio en un registro, lo requiere idiv   
+    idiv    r10
+    mov     bl,al     ;resultado de diff/2 lo guardo en rbx
+
+    mov     rdi,indexer
+    mov     rsi,rax
+    sub     rsp,8
+    call    printf
+    add     rsp,8
+
+
+    ;imul    rbx,-1
+    xor     r10,r10
+    mov     r10b,byte[posZorro]
+    cmp     byte[tablero+r10+rbx],"O"
+    je      ocaEnMedio 
+    jmp     badPosZorro
+
+
+    ocaEnMedio:
+
+    mov     byte[tablero+rbx+r10],"_"; saco la oca del lugar
+    xor     rax,rax
+    mov     rax,[ocasComidas]
+    inc     al
+    mov     [ocasComidas],rax
+
+    ;mov     qword[checkOcaEnMedioResult],1
+    ;add     r10,rbx
+    ;mov     [posOcaEnMedio],r10     
+    jmp     finCheckPosZorroDestino
+
 
     badPosZorro:
-    mov     rdi,mjePosInvalid
-    sub     rsp,64
-    call    printf
-    add     rsp,64
-
-    jmp     pedirPos
-
-    saltearOca:
-    mov     r8b, 2
-    mov     ax, posicionX
-    div     r8b
-    xor     r9, r9
-    mov     r9b, al
-    mov     ebx,r9d
-    mov     al,byte[tablero+ebx]
-    cmp     al,"O"
-    jne     badPosZorro
-
-    comerOca:
-    mov     [al], "_"
-    inc     [ocasComidas]
-
-    moverZorro:
-  
-    xor     rbx,rbx
-    xor     rax,rax
-    xor     rdi,rdi
-    xor     rsi,rsi
-    xor     rdx,rdx
-    xor     r14,r14
-    mov     ebx,[posicionX]
-    mov     rdi,mjePiezaPos;
-    mov     rsi,[posicionX]
-    mov     al,[tablero+ebx]
-    mov     dl,al
-    sub     rsp,64
-    call    printf
-    add     rsp,64
-
-    mov     rax,[posZorro]
-    mov     byte[tablero+eax],"_"
-    mov     byte[tablero+ebx],"X";
-
-    ;falta actualizar posZorro
-
+    mov     rdi,mjePosInvalidaZorro
+    call    puts
     
 
-    mov     r13,[nameOca]
-    mov     [jugTurno],r13
-    mov     [partidaGuardada], 0
+    jmp     pedirPosZorro
+
+    finCheckPosZorroDestino:
+
+ret
+
+
+pedirPos:
+
+
+    pedirFila:
+    mov     rdi,mjeFila
+    call    puts      ;
+
+    mov     rdi,bufferFil
+    sub     rsp,8
+    call    gets
+    add     rsp,8
+
+    mov     rdi,bufferFil
+    mov     rsi,formatNum      
+	mov		rdx,intFil   ;Formateo el input, str a int    
+	sub		rsp,8
+	call	sscanf             
+	add		rsp,8
+
+    mov     rdi,[intFil]
+    sub     rsp,8
+    call    checkInt
+    add     rsp,8
+
+    cmp     rax,0
+    je      pedirFila
+
+  
+    pedirColumna:
+    mov     rdi,mjeColum
+    call    puts
+
+    mov     rdi,bufferCol
+    sub     rsp,8
+    call    gets
+    add     rsp,8
+ 
+    mov     rdi,bufferCol
+    mov     rsi,formatNum      
+	mov		rdx,intCol   ;Formateo el input, str a int    
+	sub		rsp,8
+	call	sscanf             
+	add		rsp,8
+  
+    mov     rdi,[intCol]
+    sub     rsp,8
+    call    checkInt
+    add     rsp,8
+
+    cmp     rax,0
+    je      pedirColumna
+
+
+ret
+
+checkInt:
+    cmp     rax,0       ;del sscanf
+    je      endCheckInt
+
+    cmp     rdi,0     ;rax con valor 1
+    jl      invalid
+    cmp     rdi,6
+    jg      invalid
+
+    jmp     endCheckInt
+    invalid:
+    mov     rax,0
+    endCheckInt:
 ret
 
 
 
 printTablero:
-
-
     ;;;;;;;;;;;;; print index columnas
 
     mov     rdi,eL
-    sub     rsp,64
-    call    printf
-    add     rsp,64
+    mPuts
     mov     r13,0
+
     index:
     mov     rdi,indexer
     mov     rsi,r13
@@ -736,30 +833,27 @@ printTablero:
     cmp     r13,6
     jle index
 
+    mov     rdi, nameZorro
+    mPuts
+
     mov     rdi,nL
-    sub     rsp,64
-    call    printf
-    add     rsp,64
-  
-   
+    mPuts
+
+    mov     rdi, nameZorro
+    mPuts
     ;;;;;;
     mov     rbx,0
     xor     r13,r13
     setSecIndex:
     
     xor     r12,r12
-    
     mov     rdi,indexer
     mov     rsi,r13
-
     sub     rsp,64
     call    printf
     add     rsp,64
 
     set:
-
-    
-
     mov     rdi,mjeChar
     mov     rsi,[tablero+rbx];rax,[tablero+rbx]
     ;mov     [charActual],al
@@ -773,7 +867,6 @@ printTablero:
 
     inc     rbx
     inc     r12
-
     cmp     r12,7
     je      out
     jmp     set
@@ -789,24 +882,45 @@ printTablero:
     cmp     rbx,49
     jl      setSecIndex
 
+
+    ;mov     rdi,mjeOcasComidas
+    ;call    puts
+
+
+
 ret
     
 mainMenu:
+
     mov     rdi, titulo
     mPuts
     pedirOpcion:
-    mov     rdi, continue
+    mov     rdi, mjeContinue
     mPuts
-    mov     rdi, newRound
+    mov     rdi, mjeNewRound
     mPuts
-    mov     rdi, 100
-    mGets   rdi
-    cmp     qword[rdi], "cargar",0
-    je      openSaved
-    cmp     qword[rdi], "nueva partida",0
-    je      newGame
-    jne     opcionInvalida
+
+    mGets   strInput
     
+    mov     rdi,strInput
+    mov     rsi,opCargarStr
+    sub     rsp,8
+    call    strcmp
+    add     rsp,8
+    cmp     rax,0
+    je      openSaved
+
+    mov     rdi,strInput
+    mov     rsi,opNuevoStr
+    sub     rsp,8
+    call    strcmp
+    add     rsp,8
+    cmp     rax,0
+    je      newGame
+
+    jne     opcionInvalida
+
+
 opcionInvalida:
     mov     rdi,mjeOpcionInvalida
     mPuts
@@ -830,7 +944,7 @@ endProg:
 
 saveGame:
 
-    mov     rdi, saveFileName
+    mov     rdi, partidaFileName
     mov     rsi, saveMode
     sub     rsp, 64
     call    fopen     
@@ -863,7 +977,7 @@ saveGame:
     call    guardarOcasComidas
     add     rsp, 8
 
-    inc     [partidaGuardada]
+    inc     qword[partidaGuardada]
     jmp     turnoZorro
 
 
@@ -878,24 +992,35 @@ saveGame:
 
 
 exit:
-    cmp     [partidaGuardada], 1
+    cmp     byte[partidaGuardada], 1
     jge     salir
     mov     rdi, msgPartidaNoGuardada
     mPutsNotMain
     mov     rdi, msgSalir
     mPutsNotMain
-    mov     rdi, msgReandular
+    mov     rdi, msgReanudar
     mPutsNotMain
-    mov     rdi, 100
-    mGetsNotMain    rdi
-    cmp     rdi, "seguir"
+
+    mGets   strInput
+    
+    ;cmp     qword[strInput], opSeguirStr
+    ;je      turnoZorro
+
+    mov     rdi,strInput
+    mov     rsi,opSeguirStr
+    sub     rsp,8
+    call    strcmp
+    add     rsp,8
+    cmp     rax,0
     je      turnoZorro
     
+    
+    
+    
     ; salir(sin guardar):
+    ; al no guardar la partida, hay que sobreescribir partida.bin para que sea igual a tablero.bin
 
-/*
-
-    mov     rdi,fileName
+    mov     rdi,tableroNameFile                ;abro tablero.bin para leer
     mov     rsi,readMode
     sub     rsp,8
     call    fopen
@@ -918,7 +1043,7 @@ exit:
     call    fclose
     add     rsp,8
 
-    mov     rdi,saveFileName            ;abro partida.bin, para copiar dentro el contenido de tablero.bin
+    mov     rdi,partidaFileName            ;abro partida.bin, para copiar dentro el contenido de tablero.bin
     mov     rsi,saveMode
     sub     rsp,8
     call    fopen
@@ -951,11 +1076,11 @@ exit:
     cmp     qword[fileHandle],0
     jle     openError
 
-    mov     [ocasComidas],0
+    mov     qword[ocasComidas],0
     
     mov     rdi,ocasComidasStr
     mov     rsi,formatNum
-    mov     rdx,[ocasComidas]
+    mov     rdx,[ocasComidas]                   ;Formateo String a Int
     sub     rsp,8
     call    sprintf
     add     rsp,8
@@ -966,29 +1091,32 @@ exit:
     call    fputs
     add     rsp,8               
 
-    mov     rdi, ocasComidasFileName
-    mov     rsi, saveMode
-    sub     rsp, 8
-    call    fopen
-    add     rsp, 8
-    
-    mov     [ocasComidas],0
-    mov     rdi,regOcasComidas
-    mov     rsi,1
-    mov     rdx,1
-    mov     rcx,ocasComidasHandle
-    sub     rsp,8
-    call    fputs
-    add     rsp,8
 
-    mov     rdi, [fileHandle]
-    sub     rsp, 64
-    call    fclose
-    add     rsp, 64
+
+    ;mov     rdi, ocasComidasFileName
+    ;mov     rsi, saveMode
+    ;sub     rsp, 8
+    ;call    fopen
+    ;add     rsp, 8
     
-*/
+    ;mov     [ocasComidas],0
+    ;mov     rdi,regOcasComidas
+    ;mov     rsi,1
+    ;mov     rdx,1
+    ;mov     rcx,ocasComidasHandle
+    ;sub     rsp,8
+    ;call    fputs
+    ;add     rsp,8
+
+    ;mov     rdi, [fileHandle]
+    ;sub     rsp, 64
+    ;call    fclose
+    ;add     rsp, 64
+
+ 
     salir:  
     jmp     endProg
+    
 
 cargarOcasComidas:
     mov     rdi, ocasComidasFileName
@@ -997,11 +1125,11 @@ cargarOcasComidas:
     call    fopen
     add     rsp, 8
     mov     qword[ocasComidasHandle],rax
-    cmp     [ocasComidasHandle],0
+    cmp     byte[ocasComidasHandle],0
     jle     openError
 
     mov     rdi, ocasComidasStr
-    mov     rsi, 1
+    mov     rsi, 1                     ; o 2? porque el archivo puede tener 2 caracteres representando 2 digitos
     mov     rdx, 1
     mov     rcx, ocasComidasHandle
     sub     rsp, 8
@@ -1010,6 +1138,7 @@ cargarOcasComidas:
     sub     rsp, 8
     call    closeOcasComidas
     add     rsp, 8
+
 
     mov     rdi,ocasComidasStr 
     mov     rsi,formatNum
@@ -1026,7 +1155,7 @@ guardarOcasComidas:
     call    fopen
     add     rsp, 8
     mov     qword[ocasComidasHandle],rax
-    cmp     [ocasComidasHandle],0
+    cmp     byte[ocasComidasHandle],0
     jle     openError
 
     mov     rdi,ocasComidas
@@ -1038,12 +1167,15 @@ guardarOcasComidas:
     call    closeOcasComidas
     add     rsp, 8
 ret
+
 closeOcasComidas:
     mov     rdi, [ocasComidasHandle]
     sub     rsp, 8
     call    fclose
     add     rsp, 8
 ret
+
+
 ganaElZorro:
     mov     rdi, msgGanaElZorro
     mPuts
@@ -1057,119 +1189,48 @@ gananLasOcas:
     mPuts
     mov     rdi, msgAdios
     mPuts
-
 ret
 
 verificarEstadoJuego:
-    cmp     [ocasComidas], 12
-    je      victoriaZorro
+    cmp     qword[ocasComidas], 12
+    jge     victoriaZorro
 
     sub     rsp, 8
     call    findPosZorro
     add     rsp, 8
 
-    ;comparo lo que esta cerca del zorro
+    ;comparo lo que esta cerca del zorro, si esta rodeado de ocas
 
-    xor     r10, r10
-    add     r10, posZorro
-    add     r10, -7;norte
-    cmp     byte[tablero+r10],"_"
-    je      nadieGana
-
-    xor     r10, r10
-    add     r10, posZorro
-    add     r10, 7;sur
-    cmp     byte[tablero+r10],"_"
-    je      nadieGana
-
-    xor     r10, r10
-    add     r10, posZorro
-    add     r10, 1;este
-    cmp     byte[tablero+r10],"_"
-    je      nadieGana
-
-    xor     r10, r10
-    add     r10, posZorro
-    add     r10, -1;oeste
-    cmp     byte[tablero+r10],"_"
-    je      nadieGana
-
-    xor     r10, r10
-    add     r10, posZorro
-    add     r10, 8;sureste
-    cmp     byte[tablero+r10],"_"
-    je      nadieGana
-
-    xor     r10, r10
-    add     r10, posZorro
-    add     r10, -8;noroeste
-    cmp     byte[tablero+r10],"_"
-    je      nadieGana
-
-    xor     r10, r10
-    add     r10, posZorro
-    add     r10, 6;suroeste
-    cmp     byte[tablero+r10],"_"
-    je      nadieGana
-
-    xor     r10, r10
-    add     r10, posZorro
-    add     r10, -6;noreste
-    cmp     byte[tablero+r10],"_"
-    je      nadieGana
+    mov     qword[checkNadieGana],0          ;si es 0 no gana nadie
     
-    ;comparo lo no tan cerca del zorro
+    xor     rax,rax
+    mov     rbx,0
+    iterarPosCercanas:
+    cmp     rbx,8
+    je      iterarPosLejanas            ;Si entra aca es porque el zorro esta encerrado en la cercanía
 
-    xor     r10, r10
-    add     r10, posZorro
-    add     r10, -14;norte
-    cmp     byte[tablero+r10],"_"
-    je      nadieGana
     
-    xor     r10, r10
-    add     r10, posZorro
-    add     r10, 14;sur
-    cmp     byte[tablero+r10],"_"
+    mov     al,byte[posZorro]
+    add     al,byte[posCercanas+rbx]
+    inc     rbx
+    cmp     byte[tablero+rax],"_"  
+    jne     iterarPosCercanas
     je      nadieGana
 
-    xor     r10, r10
-    add     r10, posZorro
-    add     r10, 2;este
-    cmp     byte[tablero+r10],"_"
-    je      nadieGana
 
-    xor     r10, r10
-    add     r10, posZorro
-    add     r10, -2;oeste
-    cmp     byte[tablero+r10],"_"
-    je      nadieGana
+    mov     rbx,0
+    iterarPosLejanas:
+    cmp     rbx,8
+    je      victoriaOcas                   ;Si entra aca es porque además no puede saltar a ninguna oca que lo encierra
 
-    xor     r10, r10
-    add     r10, posZorro
-    add     r10, 16;sureste
-    cmp     byte[tablero+r10],"_"
-    je      nadieGana
+    mov     al,byte[posZorro]
+    add     al,byte[posLejanas+rbx]
+    inc     rbx
+    cmp     byte[tablero+rax],"_" 
+    jne     iterarPosLejanas
+    je      nadieGana                       
 
-    xor     r10, r10
-    add     r10, posZorro
-    add     r10, -16;noroeste
-    cmp     byte[tablero+r10],"_"
-    je      nadieGana
 
-    xor     r10, r10
-    add     r10, posZorro
-    add     r10, 12;suroeste
-    cmp     byte[tablero+r10],"_"
-    je      nadieGana
-
-    xor     r10, r10
-    add     r10, posZorro
-    add     r10, -12;noreste
-    cmp     byte[tablero+r10],"_"
-    je      nadieGana
-
-    ;como el zorro este encerrado, pierde
-    jmp     victoriaOcas
     
     victoriaZorro:
     sub     rsp, 8
