@@ -818,6 +818,8 @@ ret
 
 printTablero:
     ;;;;;;;;;;;;; print index columnas
+    mov     rdi, nameZorro
+    mPuts
 
     mov     rdi,eL
     mPuts
@@ -839,8 +841,6 @@ printTablero:
     mov     rdi,nL
     mPuts
 
-    mov     rdi, nameZorro
-    mPuts
     ;;;;;;
     mov     rbx,0
     xor     r13,r13
